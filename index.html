@@ -1,0 +1,154 @@
+<!doctype html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Enemy chat</title>
+    <link href="style.css" rel="stylesheet">
+</head>
+<body>
+<div id="b1o0d_chat">
+    <div id="b1o0d_options">
+        <label title="Сокет увеличивает скорость чата, но РАБОТАЕТ НЕ У ВСЕХ!">
+            <input id="b1o0d_socket" type="checkbox"> socket
+        </label>
+        <a id="b1o0d_theme">Сменить тему</a>
+    </div>
+    <div id="b1o0d_log"></div>
+    <textarea id="b1o0d_input" placeholder="Сообщение"></textarea>
+</div>
+
+<script type="text/javascript" src="socket.io/socket.io.js"></script>
+<script type="text/javascript">
+    (function () {
+        var titleEl = document.getElementsByTagName('title')[0],
+                title = titleEl.innerHTML,
+                counter = 0,
+                focused = true;
+
+        window.onblur = function() { focused = false; }
+        window.onfocus = function() { focused = true; clearCounter();}
+        document.onblur = window.onblur;
+        document.onfocus = window.onfocus;
+
+        var store = {
+            s : function (key, value) {
+                localStorage.setItem(key, typeof value === "object" ? JSON.stringify(value) : value);
+            },
+            g : function (key, json) {
+                try {
+                    var res = localStorage.getItem(key);
+                    return json && res ? JSON.parse(res) : res;
+                }
+                catch (e) {
+                    return null;
+                }
+            }
+        };
+
+        function addCounter() {
+            if(focused) return;
+            titleEl.innerHTML = '(' + (++counter) + ') ' + title;
+        }
+
+        function clearCounter() {
+            titleEl.innerHTML = title;
+            counter = 0;
+        }
+
+        var socket, input, log, login, chat, theme,  socketEl;
+
+        login       = document.getElementById('user_link');
+        input       = document.getElementById('b1o0d_input');
+        socketEl    = document.getElementById('b1o0d_socket');
+        chat        = document.getElementById('b1o0d_chat');
+        log         = document.getElementById('b1o0d_log');
+        theme       = document.getElementById('b1o0d_theme');
+        login       = login ? login.innerHTML.split('&nbsp;')[0] : 'guest';
+
+        window.CHATIK = input;
+
+        function showMessage(msg) {
+            if(!msg.text) return;
+            if(msg.text.indexOf('socketid:') === 0) return;
+
+            msg.time = (new Date(+msg.time)).toString().split(' ')[4];
+
+            log.innerHTML += [
+                '<div class="msg">',
+                    '<span class="time">'+msg.time+'</span> ',
+                    '<span class="name" style="color:'+msg.color+'" onclick="CHATIK.value=\'/pm '+msg.name+' \'+CHATIK.value;CHATIK.focus()">'+msg.name+'</span>: '+msg.text+
+                 '</div>'
+            ].join('');
+
+            log.scrollTop = log.scrollHeight;
+            if(msg.name !== login) addCounter();
+        }
+
+        function send (obj) {
+            socket.send(JSON.stringify(obj));
+        }
+
+        function sendMessage () {
+            send({type: 'msg', text: input.value});
+            input.value = '';
+        }
+
+        function themeToggle () {
+            var state = document.body.className.indexOf('theme') === -1;
+            toggleClass(document.body, 'theme');
+            store.s('theme', state ? 'theme' : '');
+        }
+
+        function toggleClass (el, cls) {
+            var has = el.className.indexOf(cls) !== -1;
+            if (has) {
+                var reg = new RegExp('(\\s|^)'+cls+'(\\s|$)');
+                el.className = el.className.replace(reg,' ');
+            }
+            else {
+                el.className += ' ' + cls;
+            }
+        }
+
+        function isSocket () {
+            return store.g('socket') === 'socket';
+        }
+        function toggleSocket () {
+            store.s('socket', socketEl.checked ? 'socket' : '');
+            location.reload();
+        }
+
+        socket = io.connect('', {'transports': [isSocket() ? 'websocket' : 'xhr-polling']});
+
+        socket.on('connect', function () {
+            if(location.hash && location.hash.slice(1).length > 5) {
+                send({type: 'session', id: location.hash.slice(1) });
+            }
+            else {
+                send({type: 'nickname', user: login});
+            }
+
+            socket.on('message', function (msg) {showMessage(msg);});
+
+            input.addEventListener('keypress', function(e) {
+                if (e.which == '13') {
+                    e.preventDefault();
+                    sendMessage();
+                }
+            });
+        });
+
+        socket.on('error', function (err) {
+            showMessage({name:'system', text: err});
+        });
+
+        socketEl.addEventListener('click', toggleSocket);
+        theme.addEventListener('click', themeToggle);
+
+        if(store.g('socket') === 'socket') socketEl.checked = true;
+        if(store.g('theme') === 'theme') themeToggle();
+
+    }());
+</script>
+</body>
+</html>
