@@ -1,0 +1,15 @@
+{
+  "name": "chat",
+  "subdomain": "b1o0d-chat.b1o0d",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "version": "0.1.2",
+   "engines": {
+      "node": "0.8.x"
+   },
+   "dependencies": {
+      "socket.io": "*",
+      "express": "3.0.x"
+   }
+}
